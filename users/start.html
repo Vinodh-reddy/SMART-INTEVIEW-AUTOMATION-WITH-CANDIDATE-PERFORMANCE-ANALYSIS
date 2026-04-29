@@ -1,0 +1,54 @@
+{% extends "users/user_base.html" %}
+
+{% block content %}
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="bg-gray-100 p-8 rounded-lg shadow-lg animate-slide-in">
+            <div class="flex flex-col md:flex-row items-center gap-8">
+                <!-- Form Section -->
+                <div class="md:w-1/2">
+                    <h2 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 mb-6">Start Your Interview 🎤</h2>
+                    <p class="text-gray-600 mb-6">Launch an AI-powered interview to evaluate candidates efficiently. Fill in the details below to begin.</p>
+                    <form method="post" class="space-y-6">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <button type="submit" class="w-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition flex items-center justify-center">
+                            Start Interview 🚀
+                        </button>
+                    </form>
+                </div>
+                <!-- Image Section -->
+                <div class="md:w-1/2">
+                    <img src="https://images.unsplash.com/photo-1551434678-e076c223a692?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&q=80" alt="Interview in progress" class="w-full h-auto rounded-lg shadow-md animate-float">
+                </div>
+            </div>
+        </div>
+    </div>
+    <style>
+        /* Custom styles for input field borders */
+        input, textarea, select {
+            border: 2px solid #4F46E5 !important; /* Indigo border for input fields */
+            transition: border-color 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color:rgb(6, 6, 6) !important; /* Lighter purple on focus */
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+        }
+        /* Ensure animations are preserved */
+        .animate-slide-in {
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes slideIn {
+            0% { opacity: 0; transform: translateX(-20px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+        @keyframes float {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0); }
+        }
+    </style>
+{% endblock %}

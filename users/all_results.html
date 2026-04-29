@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Interview Results</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
+            background-attachment: fixed;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        table {
+            width: 90%;
+            margin: 2rem auto;
+            border-collapse: separate;
+            border-spacing: 0;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 1rem;
+            text-align: center;
+            border: 2px solid #4F46E5;
+        }
+        th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        td {
+            background-color: #ffffff;
+        }
+        tr:hover td {
+            background-color: #f1f5f9;
+        }
+        .status {
+            font-weight: 500;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            display: inline-block;
+        }
+        .status-passed {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        .status-failed {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .container-bg {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+<div class="container-bg rounded-2xl shadow-2xl p-8 max-w-6xl w-full fade-in">
+
+    <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">
+        All Interview Results
+    </h2>
+
+    <center>
+        <a href="{% url 'admin_home' %}"
+           class="mb-6 inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg">
+            Back to Home
+        </a>
+    </center>
+
+    <!-- Chart: Answer-level metrics -->
+    <div class="mb-8">
+        <h3 class="text-xl font-semibold text-gray-800 text-center mb-4">Candidate Name Groups — Attempts and Highest Score</h3>
+        <div class="w-full max-w-4xl mx-auto p-4 bg-white rounded-lg shadow">
+            <canvas id="answersChart" width="900" height="300"></canvas>
+        </div>
+    </div>
+
+    <form id="bulkDeleteForm" method="post" action="{% url 'delete_candidates' %}">
+        {% csrf_token %}
+        <div class="flex justify-between items-center mb-4">
+            <div>
+                <button id="deleteSelectedBtn" type="submit" class="bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50" disabled
+                    onclick="return confirm('Delete selected candidates and all their interview results? This action cannot be undone.');">
+                    Delete Selected
+                </button>
+            </div>
+            <div class="text-sm text-gray-600">Select candidates using the checkboxes and press <strong>Delete Selected</strong>.</div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="selectAll"></th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Job Role</th>
+                    <th>Average Score</th>
+                    <th>Status</th>
+                    <th>Interview Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in results %}
+                <tr>
+                    <td class="p-2"><input type="checkbox" class="selectCandidate" name="candidate_ids" value="{{ result.candidate.id }}"></td>
+                    <td>{{ result.candidate.name }}</td>
+                    <td>{{ result.candidate.email }}</td>
+                    <td>{{ result.candidate.job_description }}</td>
+                    <td>{{ result.avg_score|floatformat:2 }}</td>
+                    <td>
+                        <strong class="status
+                        {% if result.status == 'Qualified' %}
+                            status-passed
+                        {% else %}
+                            status-failed
+                        {% endif %}">
+                            {{ result.status }}
+                        </strong>
+                    </td>
+                    <td>
+                        {% if result.date %}
+                            {{ result.date|date:"d M Y, h:i A" }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="post" action="{% url 'delete_candidate' result.candidate.id %}" onsubmit="return confirm('Delete candidate and all their interview results? This action cannot be undone.');">
+                            {% csrf_token %}
+                            <button type="submit" class="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </form>
+
+    <script>
+        // Bulk-select JS: manage select-all and enabling delete button
+        (function(){
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = Array.from(document.querySelectorAll('.selectCandidate'));
+            const deleteBtn = document.getElementById('deleteSelectedBtn');
+
+            function updateDeleteButton() {
+                const anyChecked = checkboxes.some(cb => cb.checked);
+                deleteBtn.disabled = !anyChecked;
+            }
+
+            selectAll && selectAll.addEventListener('change', function(){
+                checkboxes.forEach(cb => cb.checked = selectAll.checked);
+                updateDeleteButton();
+            });
+
+            checkboxes.forEach(cb => cb.addEventListener('change', function(){
+                if (!this.checked && selectAll.checked) selectAll.checked = false;
+                if (checkboxes.every(x => x.checked)) selectAll.checked = true;
+                updateDeleteButton();
+            }));
+
+            // Initialize
+            updateDeleteButton();
+        })();
+    </script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Read JSON data passed from the view (grouped by candidate name)
+        const labels = {{ name_labels_json|safe }} || [];
+        const attempts = {{ attempts_json|safe }} || [];
+        const highScores = {{ high_scores_json|safe }} || [];
+        const roles = {{ roles_json|safe }} || [];
+
+        const ctx = document.getElementById('answersChart').getContext('2d');
+        const answersChart = new Chart(ctx, {
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'Attempts (total)',
+                        data: attempts,
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        yAxisID: 'attempts',
+                    },
+                    {
+                        type: 'line',
+                        label: 'Highest Avg Score',
+                        data: highScores,
+                        borderColor: '#1f77b4',
+                        backgroundColor: 'rgba(31,119,180,0.08)',
+                        yAxisID: 'score',
+                        tension: 0.2,
+                        pointRadius: 4,
+                        borderWidth: 2,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    attempts: {
+                        type: 'linear',
+                        position: 'left',
+                        beginAtZero: true,
+                        title: { display: true, text: 'Total Attempts' }
+                    },
+                    score: {
+                        type: 'linear',
+                        position: 'right',
+                        min: 0,
+                        max: 5,
+                        title: { display: true, text: 'Highest Average Score (0-5)' },
+                        grid: { drawOnChartArea: false },
+                        ticks: { stepSize: 1 }
+                    }
+                },
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            afterBody: function(items) {
+                                // show most-common job role for this name group
+                                if (!items || items.length === 0) return '';
+                                var idx = items[0].dataIndex;
+                                var role = roles[idx] || '-';
+                                return 'Role: ' + role;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+
+</div>
+</body>
+</html>

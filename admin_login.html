@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% comment %} <section class="min-h-screen flex items-center justify-center bg-gray-100 py-16"> {% endcomment %}
+    <div class="max-w-md w-full mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="bg-white p-8 rounded-lg shadow-lg animate-slide-in">
+            <h2 class="text-3xl font-bold text-center gradient-text mb-6">Admin Login 🔐</h2>
+            {% if msg %}
+                <p class="text-red-600 bg-red-100 p-4 rounded-md mb-6 text-center animate-slide-in">{{ msg }}</p>
+            {% endif %}
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Admin Name</label>
+                    <input type="text" name="name" id="name" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-600 focus:border-blue-600 transition" placeholder="Enter admin name" required>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" name="password" id="password" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-600 focus:border-blue-600 transition" placeholder="Enter admin password" required>
+                </div>
+                <div>
+                    <button type="submit" class="w-full bg-purple-600 text-white px-6 py-3 rounded-md hover:bg-purple-700 transition flex items-center justify-center">
+                        Login as Admin 🚀
+                    </button>
+                </div>
+
+            </form>
+            <p class="mt-4 text-center text-gray-600">Not an admin? <a href="{% url 'user_login' %}" class="text-blue-600 hover:underline">User Login 👤</a></p>
+        </div>
+    </div>
+</section>
+{% endblock %}

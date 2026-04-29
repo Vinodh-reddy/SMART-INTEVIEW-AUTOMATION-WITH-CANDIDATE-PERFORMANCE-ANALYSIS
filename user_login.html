@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="max-w-md w-full mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="bg-white p-8 rounded-lg shadow-lg animate-slide-in">
+            <h2 class="text-3xl font-bold text-center gradient-text mb-6">User Login 👤</h2>
+            {% if msg %}
+                <p class="text-red-600 bg-red-100 p-4 rounded-md mb-6 text-center animate-slide-in">{{ msg }}</p>
+            {% endif %}
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+                    <input type="text" name="name" id="name" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-600 focus:border-blue-600 transition" placeholder="Enter your name" required>
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" name="password" id="password" class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-600 focus:border-blue-600 transition" placeholder="Enter your password" required>
+                </div>
+                <div>
+                    <button type="submit" class="w-full bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition flex items-center justify-center">
+                        Login 🚀
+                    </button>
+                </div>
+                <div class="text-center">
+                    <a href="{% url 'forgot_password' %}" class="text-blue-600 hover:underline">Forgot Password? 🔑</a>
+                </div>
+            </form>
+            <p class="mt-4 text-center text-gray-600">Don't have an account? <a href="{% url 'register' %}" class="text-blue-600 hover:underline">Register here 📝</a></p>
+        </div>
+    </div>
+</section>
+{% endblock %}

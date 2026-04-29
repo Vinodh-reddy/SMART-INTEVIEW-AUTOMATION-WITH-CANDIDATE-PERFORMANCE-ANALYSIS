@@ -1,0 +1,24 @@
+{% extends "users/user_base.html" %}
+
+{% block content %}
+<!-- Welcome Section -->
+<section class="pt-8 pb-16 bg-gradient-to-br from-blue-600 to-purple-600 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <!-- User Info with bigger size -->
+        <div class="flex items-center justify-center space-x-3 mb-6">
+            <img src="{{ user_image }}" alt="User Image" class="w-20 h-20 rounded-full border-2 border-blue-600">
+            <span class="text-white text-lg font-semibold">Welcome, {{ user_name }}!</span>
+            <span class="text-blue-200 text-lg">| {{ login_time }}</span>
+        </div>
+
+<h2 class="text-4xl md:text-5xl font-bold text-pink-600 mb-6 animate-slide-in">
+  Your InterviewAI Dashboard 🚀
+</h2>
+        <p class="text-lg mb-8 max-w-2xl mx-auto">Take control of your hiring process with our AI-powered tools. Start interviews, review analytics, and find the perfect candidates effortlessly.</p>
+        <a href="{% url 'start_interview' %}" class="inline-block bg-white text-blue-600 px-8 py-3 rounded-md hover:bg-gray-100 animate-float transition">Start Interview Now 🎤</a>
+    </div>
+</section>
+
+
+
+{% endblock %}

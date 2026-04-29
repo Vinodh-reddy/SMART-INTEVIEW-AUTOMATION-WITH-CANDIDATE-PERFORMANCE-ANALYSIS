@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Interview Results</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0e7ff, #dbeafe);
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center p-6">
+
+<div class="bg-white shadow-2xl rounded-xl p-8 max-w-4xl w-full">
+
+    <!-- Header -->
+    <h2 class="text-3xl font-bold text-indigo-700 mb-6">
+        Interview Result – {{ candidate.name }}
+    </h2>
+
+    <!-- Compact Summary Card -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="col-span-2 p-4 rounded-lg bg-gray-50 border">
+            <div class="flex items-center justify-between mb-3">
+                <p class="text-lg"><strong>Average Score:</strong> {{ avg_score|floatformat:2 }}</p>
+                <p class="text-lg">
+                    <strong>Status:</strong>
+                    <span class="px-3 py-1 rounded
+                    {% if qualification_status == 'Qualified' %}
+                        bg-green-200 text-green-800
+                    {% else %}
+                        bg-red-200 text-red-800
+                    {% endif %}">
+                        {{ qualification_status }}
+                    </span>
+                </p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                <p><strong>Interview Date:</strong> {{ interview_date }}</p>
+                <p><strong>Confidence Level:</strong> {{ confidence_level }}%</p>
+                <p><strong>Accuracy:</strong> {{ accuracy }}%</p>
+                <p><strong>Recommendation:</strong> {{ recommendation }}</p>
+            </div>
+        </div>
+
+        <div class="p-4 rounded-lg bg-white border">
+            <p class="text-sm text-gray-700"><strong>Strengths:</strong> {{ strengths }}</p>
+            <p class="text-sm text-gray-700 mt-3"><strong>Weak Areas:</strong> {{ weak_areas }}</p>
+        </div>
+    </div>
+
+    <!-- ================= PERFORMANCE CHART ================= -->
+    <h3 class="text-2xl font-semibold text-gray-800 mb-4">
+        Performance Analysis
+    </h3>
+
+    <div class="mb-10">
+        <canvas id="performanceChart"></canvas>
+    </div>
+
+    <!-- ================= METRIC CARDS ================= -->
+    <div class="grid grid-cols-3 gap-4 text-center mb-10">
+
+        <div class="p-4 rounded-lg bg-indigo-50">
+            <p class="text-lg font-semibold text-indigo-700">Overall Performance</p>
+            <p class="text-3xl font-bold">{{ overall_score|floatformat:0 }}%</p>
+        </div>
+
+        <div class="p-4 rounded-lg bg-green-50">
+            <p class="text-lg font-semibold text-green-700">Technical Knowledge</p>
+            <p class="text-3xl font-bold">{{ technical_score|floatformat:0 }}%</p>
+        </div>
+
+        <div class="p-4 rounded-lg bg-yellow-50">
+            <p class="text-lg font-semibold text-yellow-700">Emotion / Confidence</p>
+            <p class="text-3xl font-bold">{{ emotion_score }}%</p>
+        </div>
+
+    </div>
+
+    <!-- ================= QUESTION DETAILS ================= -->
+    <h3 class="text-xl font-semibold mb-4">Detailed Responses</h3>
+
+    {% for r in responses %}
+    <div class="border rounded-lg p-4 mb-3">
+        <p><strong>Question:</strong> {{ r.question }}</p>
+        <p><strong>Answer:</strong> {{ r.answer }}</p>
+        <p><strong>Score:</strong> {{ r.score }}/5</p>
+    </div>
+    {% endfor %}
+
+    <!-- Back Button -->
+    <div class="text-center mt-6">
+        <a href="{% url 'user_homepage' %}"
+           class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">
+            Back to Home
+        </a>
+    </div>
+
+</div>
+
+<!-- ================= CHART SCRIPT ================= -->
+<script>
+const ctx = document.getElementById('performanceChart').getContext('2d');
+
+new Chart(ctx, {
+    type: 'radar',
+    data: {
+        labels: [
+            'Overall Performance',
+            'Technical Knowledge',
+            'Emotion / Confidence'
+        ],
+        datasets: [{
+            label: 'Candidate Performance',
+            data: [
+                {{ overall_score }},
+                {{ technical_score }},
+                {{ emotion_score }}
+            ],
+            backgroundColor: 'rgba(99, 102, 241, 0.3)',
+            borderColor: '#4F46E5',
+            borderWidth: 2,
+            pointBackgroundColor: '#4F46E5'
+        }]
+    },
+    options: {
+        scales: {
+            r: {
+                beginAtZero: true,
+                max: 100
+            }
+        }
+    }
+});
+</script>
+
+</body>
+</html>
+
+
+
+{% comment %} <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Interview Result</title>
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #e0e7ff, #dbeafe);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-6">
+
+<div class="bg-white shadow-2xl rounded-xl p-8 max-w-4xl w-full">
+
+    <!-- Header -->
+    <h2 class="text-3xl font-bold text-indigo-700 mb-4">
+        Interview Result – {{ candidate.name }}
+    </h2>
+
+    <!-- Score Info -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+        <p class="text-lg">
+            <strong>Average Score:</strong> {{ avg_score|floatformat:2 }}
+        </p>
+        <p class="text-lg">
+            <strong>Status:</strong>
+            <span class="px-3 py-1 rounded
+            {% if qualification_status == 'Qualified' %}
+                bg-green-200 text-green-800
+            {% else %}
+                bg-red-200 text-red-800
+            {% endif %}">
+                {{ qualification_status }}
+            </span>
+        </p>
+    </div>
+
+    <!-- Graph -->
+    <div class="mb-10">
+        <h3 class="text-xl font-semibold mb-3">Performance Graph</h3>
+        <canvas id="scoreChart"></canvas>
+    </div>
+
+    <!-- Responses -->
+    <h3 class="text-xl font-semibold mb-4">Detailed Responses</h3>
+
+    {% for r in responses %}
+    <div class="border rounded-lg p-4 mb-3">
+        <p><strong>Question:</strong> {{ r.question }}</p>
+        <p><strong>Answer:</strong> {{ r.answer }}</p>
+        <p><strong>Score:</strong> {{ r.score }}/5</p>
+    </div>
+    {% endfor %}
+
+    <div class="text-center mt-6">
+        <a href="{% url 'user_homepage' %}"
+           class="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">
+            Back to Home
+        </a>
+    </div>
+</div>
+
+<!-- Chart Script -->
+<script>
+    const labels = {{ questions|safe }};
+    const scores = {{ scores|safe }};
+
+    const ctx = document.getElementById('scoreChart').getContext('2d');
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Score per Question',
+                data: scores,
+                backgroundColor: '#6366F1',
+                borderRadius: 6
+            }]
+        },
+        options: {
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 5
+                }
+            }
+        }
+    });
+</script>
+
+</body>
+</html> {% endcomment %}

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-purple-600 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center">
+        <!-- Hero Text -->
+        <div class="md:w-1/2 text-center md:text-left animate-slide-in">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4 text-yellow-600t">Welcome to InterviewAI 🚀</h1>
+            <p class="text-lg mb-6">Transform your hiring process with our AI-powered interview assistant, powered by LangChain and Gemini API. Streamline interviews, reduce bias, and hire the best talent effortlessly.</p>
+            <div class="space-x-4">
+                <a href="{% url 'register' %}" class="bg-white text-blue-600 px-6 py-3 rounded-md hover:bg-gray-100 animate-float">Get Started 📝</a>
+                <a href="{% url 'user_login' %}" class="border border-white text-white px-6 py-3 rounded-md hover:bg-white hover:text-blue-600">Login 👤</a>
+            </div>
+        </div>
+        <!-- Hero Image -->
+        <div class="md:w-1/2 mt-8 md:mt-0 animate-float">
+            <img src="https://images.unsplash.com/photo-1551434678-e076c223a692?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80" alt="Team collaborating in a meeting" class="rounded-lg shadow-lg max-w-full h-auto">
+        </div>
+    </div>
+</section>
+
+
+
+{% endblock %}

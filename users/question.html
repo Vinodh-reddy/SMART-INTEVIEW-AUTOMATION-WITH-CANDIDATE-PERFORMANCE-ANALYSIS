@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Interview Question</title>
+    <!-- Tailwind CDN used for development only. For production, install Tailwind via PostCSS or use the Tailwind CLI: https://tailwindcss.com/docs/installation -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>console.warn('Tailwind CDN is for development only. Install Tailwind for production: https://tailwindcss.com/docs/installation');</script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0e7ff 0%, #dbeafe 100%);
+            background-attachment: fixed;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        button:hover {
+            transform: translateY(-2px);
+            transition: transform 0.2s ease-in-out;
+        }
+        textarea, input {
+            border: 2px solid #4F46E5 !important; /* Indigo border for input fields */
+            transition: border-color 0.3s ease-in-out;
+        }
+        textarea:focus, input:focus {
+            border-color: #7C3AED !important; /* Lighter purple on focus */
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
+        }
+        .container-bg {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="container-bg rounded-2xl shadow-2xl p-8 max-w-2xl w-full fade-in">
+        <h2 class="text-3xl font-bold text-gray-800 mb-1 text-center">AI Interview Question</h2>
+        <p class="text-sm text-gray-600 text-center mb-4">Question <strong id="q-counter">{{ question_count }}</strong> of <strong id="q-total">{{ max_questions }}</strong></p>
+        <p id="question-text" class="text-lg text-gray-700 bg-gray-50 p-4 rounded-lg mb-6">{{ question }}</p>
+
+        <div class="flex justify-center space-x-4 mb-6">
+            <button onclick="speakText()" class="bg-blue-500 text-white px-6 py-3 rounded-lg flex items-center space-x-2 hover:bg-blue-600 transition-colors">
+                <span>🔊</span><span>Read Question</span>
+            </button>
+            <button onclick="startListening()" class="bg-green-500 text-white px-6 py-3 rounded-lg flex items-center space-x-2 hover:bg-green-600 transition-colors">
+                <span>🎤</span><span>Start Speaking</span>
+            </button>
+        </div>
+
+        <form method="post" action="{% url 'answer_question' %}" class="space-y-4">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition-colors">Submit Answer</button>
+        </form>
+
+        <p class="text-sm text-gray-500 italic text-center mt-4">Your voice input will appear in the text box</p>
+    </div>
+
+    <!-- Webcam / Vision UI -->
+    <div class="container-bg rounded-2xl shadow-2xl p-6 max-w-2xl w-full fade-in mt-6">
+        <h3 class="text-xl font-semibold mb-3">Live Video (proctoring)</h3>
+        <div class="flex flex-col md:flex-row items-center md:items-start gap-4">
+            <video id="liveVideo" autoplay playsinline class="rounded-lg border" width="320" height="240"></video>
+            <div class="flex flex-col items-start">
+                <canvas id="snapCanvas" width="320" height="240" class="hidden"></canvas>
+                <div id="analysis" class="text-sm text-gray-700"></div>
+                <div id="motionWarning" class="text-sm text-yellow-700 mt-2"></div>
+                <div class="mt-3 flex items-center space-x-2">
+                    <span id="camStatus" class="text-sm text-green-600">Camera will start automatically</span>
+                    <button id="startCamBtn" class="ml-2 inline-block bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm">Start Camera</button>
+                    <button id="retryCamBtn" class="ml-2 inline-block bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 text-sm hidden">Retry Camera</button>
+                    <select id="cameraSelect" class="ml-2 text-sm hidden rounded border px-2 py-1"></select>
+                </div>
+                <div id="camHelp" class="mt-2 text-xs text-gray-600 hidden"></div>
+                <div id="camDiag" class="mt-2 text-xs text-red-600 hidden" style="white-space:pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', 'Courier New', monospace;"></div>
+            </div>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">A thumbnail snapshot is periodically sent to the server for proctoring/vision analysis.</p>
+    </div>
+
+   <script>
+/* ========== TEXT TO SPEECH ========== */
+function speakText() {
+    window.speechSynthesis.cancel();
+    const text = document.getElementById("question-text").innerText;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    window.speechSynthesis.speak(utterance);
+}
+
+/* ========== SPEECH TO TEXT (AUTO-APPEND MODE) ========== */
+
+let recognition;
+let isListening = false;
+let speechBuffer = '';
+
+function startListening() {
+    const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        alert("Speech recognition works only in Google Chrome.");
+        return;
+    }
+
+    if (isListening) return; // prevent multiple loops
+    isListening = true;
+
+    // focus the answer textarea so transcribed text is visible
+    const textarea = document.querySelector('textarea[name="answer"]');
+    if (textarea) {
+        textarea.focus();
+        // initialize speechBuffer with existing content so new speech appends
+        speechBuffer = textarea.value || '';
+    } else {
+        speechBuffer = '';
+    }
+
+    startRecognition();
+}
+
+function startRecognition() {
+    const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = true; // allow interim to show live
+    recognition.continuous = true;     // keep listening
+
+    recognition.start();
+
+    recognition.onresult = function (event) {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            const res = event.results[i];
+            const txt = res[0].transcript;
+            if (res.isFinal) {
+                speechBuffer += txt + ' ';
+            } else {
+                interim += txt;
+            }
+        }
+
+        const textarea = document.querySelector('textarea[name="answer"]');
+        if (textarea) {
+            textarea.value = speechBuffer + interim;
+        }
+    };
+
+    recognition.onend = function () {
+        // 🔁 Restart automatically after pause only if still listening
+        if (isListening) {
+            setTimeout(startRecognition, 300);
+        }
+    };
+
+    recognition.onerror = function (e) {
+        console.error('Speech recognition error', e);
+        try { recognition.stop(); } catch(_) {}
+    };
+}
+</script>
+
+    <script>
+/* ================= TAB VIOLATION – STABLE VERSION ================= */
+
+// Persist count in browser session
+let localCount = Number(sessionStorage.getItem("tabCount") || 0);
+let locked = false;
+
+function reportTabViolation() {
+    if (locked) return;
+    locked = true;
+
+    localCount++;
+    sessionStorage.setItem("tabCount", localCount);
+    console.log("Local tab count:", localCount);
+
+    fetch("{% url 'tab_violation' %}", {
+        method: "POST",
+        headers: {
+            "X-CSRFToken": "{{ csrf_token }}"
+        }
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log("Server count:", data.count);
+
+        if (localCount >= 3) {
+            playDisqualifySound();
+            setTimeout(disqualifyNow, 500);
+        }
+    })
+    .finally(() => {
+        setTimeout(() => locked = false, 800);
+    });
+}
+
+/* Visibility API (most reliable) */
+document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+        reportTabViolation();
+    }
+});
+
+/* ================= SOUND ================= */
+
+function playDisqualifySound() {
+    const sound = document.getElementById("disqualifySound");
+    if (sound) {
+        sound.currentTime = 0;
+        sound.play().catch(() => {});
+    }
+}
+
+/* ================= DISQUALIFY ================= */
+
+function disqualifyNow() {
+    alert("❌ You are disqualified due to multiple tab switches.");
+
+    // prevent further attempts
+    sessionStorage.setItem("tabCount", 99);
+
+    const form = document.querySelector("form");
+    if (form) form.submit();
+}
+</script>
+
+
+<audio id="disqualifySound" preload="auto">
+  <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg">
+</audio>
+
+<audio id="warningSound" preload="auto">
+  <source src="https://actions.google.com/sounds/v1/alarms/medium_bell_ringing.ogg">
+</audio>
+
+<script>
+// Webcam capture and periodic upload
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+const video = document.getElementById('liveVideo');
+const canvas = document.getElementById('snapCanvas');
+const analysisDiv = document.getElementById('analysis');
+let stream = null;
+let captureInterval = null;
+
+async function startCamera(fromUser = false) {
+    if (stream) return;
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const msg = 'This browser does not support camera access via navigator.mediaDevices.getUserMedia.';
+        console.error(msg);
+        analysisDiv.innerText = msg;
+        setCamStatus('Camera unavailable', '#dc2626');
+        return;
+    }
+
+    try {
+        // if user selected a device, prefer that
+        const selectedDeviceId = document.getElementById('cameraSelect')?.value;
+        const constraints = selectedDeviceId ? { video: { deviceId: { exact: selectedDeviceId } }, audio: false } : { video: true, audio: false };
+
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        // allow autoplay by muting briefly
+        try { video.muted = true; } catch(e) {}
+        video.srcObject = stream;
+
+        // when video starts playing, clear diagnostics and start captures
+        const onPlaying = () => {
+            try { video.play(); } catch(e){}
+            try { video.muted = false; } catch(e){}
+            // start periodic captures every 8 seconds
+            if (!captureInterval) captureInterval = setInterval(captureAndSend, 8000);
+            setCamStatus('Camera active', '#15803d');
+            document.getElementById('startCamBtn').classList.add('hidden');
+            document.getElementById('retryCamBtn').classList.add('hidden');
+            document.getElementById('cameraSelect').classList.remove('hidden');
+            analysisDiv.innerText = '';
+            hideCameraDiag();
+            video.removeEventListener('playing', onPlaying);
+        };
+        video.addEventListener('playing', onPlaying);
+
+        // populate device list now that permission granted
+        populateCameraList().catch(()=>{});
+
+        // If the stream doesn't report frames within 2200ms, run diagnostics
+        setTimeout(() => {
+            const hasVideo = (video && video.videoWidth && video.videoHeight) || (stream && stream.getVideoTracks && stream.getVideoTracks().length > 0 && stream.getVideoTracks()[0].readyState === 'live');
+            if (!hasVideo) {
+                showCameraHelp('generic');
+                runCameraDiagnostics();
+            }
+        }, 2200);
+
+    } catch (err) {
+        console.error('Camera start failed', err);
+        runCameraDiagnostics(err);
+
+        // Insecure context check (getUserMedia requires HTTPS except for localhost)
+        const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        if (!window.isSecureContext && !isLocal) {
+            const msg = 'Camera requires a secure context (HTTPS). Serve the site via HTTPS or use localhost.';
+            analysisDiv.innerText = msg;
+            setCamStatus('Camera unavailable (insecure context)', '#dc2626');
+            showCameraHelp('insecure');
+            document.getElementById('retryCamBtn')?.classList.remove('hidden');
+            return;
+        }
+
+        let friendly = 'Unable to access camera.';
+        if (err && (err.name === 'NotAllowedError' || err.name === 'SecurityError' || err.name === 'PermissionDeniedError')) {
+            friendly = 'Camera permission denied. Please allow camera access in your browser and click "Retry Camera".';
+            showCameraHelp('permission');
+        } else if (err && (err.name === 'NotFoundError' || err.name === 'OverconstrainedError')) {
+            friendly = 'No camera device found. Connect a camera and retry.';
+            showCameraHelp('device');
+        } else if (err && (err.name === 'NotReadableError' || err.name === 'TrackStartError')) {
+            friendly = 'Camera is already in use by another application. Close other apps and retry.';
+            showCameraHelp('inuse');
+        } else {
+            friendly = err && err.message ? err.message : friendly;
+            showCameraHelp('generic');
+        }
+
+        analysisDiv.innerText = friendly;
+        setCamStatus('Camera inactive', '#dc2626');
+
+        // show retry button to allow user to re-trigger a permission prompt
+        const retry = document.getElementById('retryCamBtn');
+        if (retry) retry.classList.remove('hidden');
+        // show start button if not from user interaction
+        const startBtn = document.getElementById('startCamBtn');
+        if (startBtn && !fromUser) startBtn.classList.remove('hidden');
+    }
+}
+
+async function populateCameraList() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cams = devices.filter(d => d.kind === 'videoinput');
+        const sel = document.getElementById('cameraSelect');
+        if (!sel) return;
+        sel.innerHTML = '';
+        cams.forEach((c, i) => {
+            const opt = document.createElement('option');
+            opt.value = c.deviceId;
+            opt.text = c.label || `Camera ${i+1}`;
+            sel.appendChild(opt);
+        });
+        if (cams.length === 0) {
+            document.getElementById('cameraSelect').classList.add('hidden');
+        } else {
+            document.getElementById('cameraSelect').classList.remove('hidden');
+        }
+    } catch (e) {
+        console.warn('Camera enumeration failed', e);
+    }
+}
+
+function stopCamera() {
+    if (captureInterval) {
+        clearInterval(captureInterval);
+        captureInterval = null;
+    }
+    if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+        video.srcObject = null;
+    }
+}
+
+function captureAndSend() {
+    if (!stream) return;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/png');
+
+    fetch("{% url 'vision_analyze' %}", {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ image: dataUrl })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.analysis) {
+            analysisDiv.innerText = 'Analysis: ' + JSON.stringify(data.analysis);
+        } else if (data.error) {
+            analysisDiv.innerText = 'Analysis error: ' + data.error;
+        }
+    }).catch(err => {
+        analysisDiv.innerText = 'Upload failed';
+        console.error(err);
+    });
+}
+
+/* ================= MOTION DETECTION ================= */
+let prevImgData = null;
+let motionInterval = null;
+
+// read server-configured motion settings (if provided)
+const serverMotionSettings = (() => {
+    try {
+        return JSON.parse(`{{ motion_settings|default:'{}'|escapejs }}`);
+    } catch (e) {
+        return {};
+    }
+})();
+
+// Sliding window motion detection with debounced event registration and noise reduction
+let motionEvents = []; // timestamps (ms) of registered motion events
+let rawDetections = []; // timestamps of raw detections for coalescing
+let lastRegisteredEventAt = 0;
+let disqualified = false;
+
+const motionConfig = {
+    intervalMs: serverMotionSettings.sampleIntervalMs || 800,
+    pixelDiffThreshold: serverMotionSettings.pixelThreshold || 30,
+    motionRatioThreshold: serverMotionSettings.ratioThreshold || 0.02,
+    windowSeconds: serverMotionSettings.windowSeconds || 45,
+    windowCount: serverMotionSettings.windowCount || 2,
+    enabled: serverMotionSettings.enabled !== undefined ? serverMotionSettings.enabled : true,
+    // runtime tuning
+    smallWidth: 240, // higher-res downscale for better sensitivity
+    detectionCountForEvent: 1, // more sensitive: single confirmation registers an event
+    detectionWindowMs: 1500,
+    minEventIntervalMs: 1500, // faster spacing allowed
+};
+
+// create an offscreen small canvas to reduce noise and CPU
+const smallCanvas = document.createElement('canvas');
+const smallCtx = smallCanvas.getContext('2d');
+
+function detectMotion() {
+    if (!stream || !motionConfig.enabled || disqualified) return;
+
+    // compute target small canvas size maintaining aspect ratio
+    const aspect = canvas.height / canvas.width;
+    smallCanvas.width = motionConfig.smallWidth;
+    smallCanvas.height = Math.round(motionConfig.smallWidth * aspect);
+
+    smallCtx.drawImage(video, 0, 0, smallCanvas.width, smallCanvas.height);
+    const imgData = smallCtx.getImageData(0, 0, smallCanvas.width, smallCanvas.height).data;
+
+    if (!prevImgData) {
+        prevImgData = new Uint8ClampedArray(imgData);
+        return;
+    }
+
+    let changed = 0;
+    const totalPixels = smallCanvas.width * smallCanvas.height;
+
+    // grayscale diff (luminosity) reduces channel noise
+    for (let i = 0; i < imgData.length; i += 4) {
+        const r = imgData[i], g = imgData[i + 1], b = imgData[i + 2];
+        const pr = prevImgData[i], pg = prevImgData[i + 1], pb = prevImgData[i + 2];
+        const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        const pl = 0.2126 * pr + 0.7152 * pg + 0.0722 * pb;
+        const d = Math.abs(lum - pl);
+        if (d > motionConfig.pixelDiffThreshold) changed++;
+    }
+
+    const motionRatio = changed / totalPixels;
+
+    // minimum absolute changed pixels to avoid tiny change noise from triggering
+    const minChangedPixels = Math.max(10, Math.floor(totalPixels * 0.002));
+
+    if (changed >= minChangedPixels && motionRatio > motionConfig.motionRatioThreshold) {
+        registerRawDetection(motionRatio);
+    }
+
+    // store previous low-res image for next comparison
+    // note: keep prevImgData same length as small canvas image
+    if (prevImgData.length !== imgData.length) prevImgData = new Uint8ClampedArray(imgData);
+    else prevImgData.set(imgData);
+}
+
+function registerRawDetection(ratio) {
+    const now = Date.now();
+    rawDetections.push(now);
+
+    // prune old raw detections
+    rawDetections = rawDetections.filter(ts => now - ts <= motionConfig.detectionWindowMs);
+
+    // if enough raw detections within detectionWindowMs, try to register one motion event
+    if (rawDetections.length >= motionConfig.detectionCountForEvent) {
+        // ensure events are debounced to avoid duplicates
+        if (now - lastRegisteredEventAt < motionConfig.minEventIntervalMs) {
+            // ignore: registered recently
+            return;
+        }
+        lastRegisteredEventAt = now;
+        rawDetections = [];
+
+        // record registered event
+        motionEvents.push(now);
+        const windowMs = motionConfig.windowSeconds * 1000;
+        motionEvents = motionEvents.filter(ts => now - ts <= windowMs);
+        const count = motionEvents.length;
+
+        const motionWarningEl = document.getElementById('motionWarning');
+        if (motionWarningEl) {
+            motionWarningEl.innerText = `⚠️ Movement detected. Recent events (${motionConfig.windowSeconds}s): ${count}`;
+            motionWarningEl.style.color = '#b45309';
+        }
+        const warningSound = document.getElementById('warningSound');
+        if (warningSound) {
+            warningSound.currentTime = 0;
+            warningSound.play().catch(() => {});
+        }
+
+        // Send to server for logging (non-blocking)
+        fetch("{% url 'motion_event' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ ratio: ratio, timestamp: new Date().toISOString() })
+        }).then(r => r.json()).then(data => {
+            if (data && data.action === 'disqualify') {
+                disqualify('❌ You are disqualified due to repeated detected movements (server).');
+            }
+        }).catch(() => {});
+
+        // local enforcement
+        if (count >= motionConfig.windowCount) {
+            disqualify('❌ You are disqualified due to repeated detected movements.');
+        }
+    }
+}
+
+// Disqualify / exit handler: single modal + auto-submit, prevents repeated alerts
+function disqualify(message) {
+    if (disqualified) return;
+    disqualified = true;
+
+    // show modal overlay (create if not exists)
+    let modal = document.getElementById('disqualifyModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'disqualifyModal';
+        modal.style.position = 'fixed';
+        modal.style.left = 0;
+        modal.style.top = 0;
+        modal.style.right = 0;
+        modal.style.bottom = 0;
+        modal.style.background = 'rgba(0,0,0,0.6)';
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.zIndex = 9999;
+        modal.innerHTML = `<div style="background:#fff;padding:24px;border-radius:8px;max-width:480px;text-align:center;">` +
+            `<h2 style="margin:0 0 12px 0;">Disqualified</h2>` +
+            `<p id="disqualifyMessage" style="margin:0 0 12px 0;font-size:16px;">${message}</p>` +
+            `<p style="font-size:13px;color:#555;margin:0">You will be returned to the results/exited in 2 seconds.</p>` +
+            `</div>`;
+        document.body.appendChild(modal);
+    } else {
+        const m = document.getElementById('disqualifyMessage');
+        if (m) m.innerText = message;
+        modal.style.display = 'flex';
+    }
+
+    sessionStorage.setItem('autoDisqualified', '1');
+
+    // stop camera and motion detection
+    if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+    }
+
+    setTimeout(() => {
+        const form = document.querySelector('form');
+        if (form) form.submit();
+        // fallback: redirect to index
+        else window.location.href = '/';
+    }, 2000);
+}
+
+// serverMotionSettings is hoisted earlier to avoid reference errors
+
+// helpful camera diagnostics messages
+function showCameraHelp(kind) {
+    const el = document.getElementById('camHelp');
+    if (!el) return;
+    el.classList.remove('hidden');
+
+    let html = '';
+    if (kind === 'permission') {
+        html = `Permission denied. Steps: 1) Click the lock icon next to the address bar. 2) Set Camera to "Allow". 3) Click <strong>Retry Camera</strong> or click anywhere on the page to enable.`;
+    } else if (kind === 'device') {
+        html = `No camera detected. Steps: 1) Connect a webcam via USB. 2) If using a laptop, ensure the built-in camera is enabled. 3) Click <strong>Retry Camera</strong>.`;
+    } else if (kind === 'inuse') {
+        html = `Camera is in use. Steps: 1) Close other apps that might use the camera (Zoom/Teams/Skype). 2) Click <strong>Retry Camera</strong>.`;
+    } else if (kind === 'insecure') {
+        html = `This page is not in a secure context. Serve the app over HTTPS or open via <code>localhost</code>. Browsers block camera access on insecure pages.`;
+    } else {
+        html = `Troubleshoot: 1) Ensure camera permission is allowed. 2) Use an up-to-date Chrome/Edge/Firefox. 3) Click <strong>Retry Camera</strong> or click anywhere on the page to enable.`;
+    }
+
+    html += `<div class="mt-2 text-xs text-gray-500">Troubleshooting docs: <a target="_blank" rel="noreferrer" href="https://support.google.com/chrome/answer/2693767">Chrome</a> · <a target="_blank" rel="noreferrer" href="https://support.mozilla.org/en-US/kb/webcam-permissions">Firefox</a></div>`;
+    el.innerHTML = html;
+}
+
+async function runCameraDiagnostics(err) {
+    const diag = document.getElementById('camDiag');
+    if (!diag) return;
+    diag.classList.remove('hidden');
+
+    const lines = [];
+    lines.push(`Time: ${new Date().toISOString()}`);
+    lines.push(`Location: ${window.location.href}`);
+    lines.push(`Secure context: ${window.isSecureContext}`);
+
+    try {
+        if (navigator.permissions && navigator.permissions.query) {
+            try {
+                const p = await navigator.permissions.query({ name: 'camera' });
+                lines.push(`Permission API (camera): state=${p.state}`);
+            } catch (e) {
+                lines.push(`Permission API camera: not supported (${e.message})`);
+            }
+        } else {
+            lines.push('Permission API: not available');
+        }
+    } catch (e) {
+        lines.push(`Permission query failed: ${e.message}`);
+    }
+
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cams = devices.filter(d => d.kind === 'videoinput');
+        lines.push(`Cameras found: ${cams.length}`);
+        cams.forEach((c, i) => lines.push(`  ${i+1}: id=${c.deviceId}, label="${c.label || 'hidden'}'"`));
+    } catch (e) {
+        lines.push(`Device enumeration failed: ${e.message}`);
+    }
+
+    try {
+        if (stream) {
+            lines.push(`Stream active: ${stream.active}`);
+            const tracks = stream.getVideoTracks();
+            lines.push(`Video tracks: ${tracks.length}`);
+            tracks.forEach((t, i) => lines.push(`  Track ${i+1}: kind=${t.kind}, enabled=${t.enabled}, muted=${t.muted}, readyState=${t.readyState}`));
+        } else {
+            lines.push('No stream object present');
+        }
+    } catch (e) {
+        lines.push(`Stream inspection failed: ${e.message}`);
+    }
+
+    if (err) lines.push(`Error: ${err.name || err} - ${err.message || ''}`);
+
+    diag.innerText = lines.join('\n');
+}
+
+// re-run diagnostics when devices change (plugin/unplug camera)
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+    navigator.mediaDevices.addEventListener('devicechange', () => runCameraDiagnostics().catch(()=>{}));
+} else if (navigator.mediaDevices && navigator.mediaDevices.ondevicechange !== undefined) {
+    navigator.mediaDevices.ondevicechange = () => runCameraDiagnostics().catch(()=>{});
+}
+
+// helper: one-time gesture trigger (click/keydown/tap) that starts camera when user interacts
+function addGestureStart() {
+    const handler = (e) => {
+        // allow gesture to trigger camera start once
+        document.removeEventListener('pointerdown', handler);
+        document.removeEventListener('keydown', handler);
+        setCamStatus('Permission requested (via user gesture)...', '#15803d');
+        startCamera(true);
+        removeGesturePrompt();
+    };
+    document.addEventListener('pointerdown', handler, { once: true });
+    document.addEventListener('keydown', handler, { once: true });
+
+    showGesturePrompt();
+}
+
+function showGesturePrompt() {
+    let p = document.getElementById('gesturePrompt');
+    if (!p) {
+        p = document.createElement('div');
+        p.id = 'gesturePrompt';
+        p.style.position = 'fixed';
+        p.style.left = '12px';
+        p.style.bottom = '12px';
+        p.style.background = 'rgba(0,0,0,0.7)';
+        p.style.color = '#fff';
+        p.style.padding = '8px 12px';
+        p.style.borderRadius = '6px';
+        p.style.fontSize = '13px';
+        p.style.zIndex = '9998';
+        p.innerText = 'Click anywhere or press any key to enable camera';
+        document.body.appendChild(p);
+    } else {
+        p.style.display = 'block';
+    }
+}
+
+function removeGesturePrompt() {
+    const p = document.getElementById('gesturePrompt');
+    if (p) p.style.display = 'none';
+}
+
+// setup camera UI handlers and auto-start attempt
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('startCamBtn')?.addEventListener('click', () => {
+        setCamStatus('Requesting camera permission...', '#15803d');
+        startCamera(true);
+    });
+    document.getElementById('retryCamBtn')?.addEventListener('click', () => {
+        setCamStatus('Retrying camera...', '#15803d');
+        startCamera(true);
+    });
+    document.getElementById('cameraSelect')?.addEventListener('change', () => {
+        // if user changes camera selection and camera is active, restart on that device
+        if (stream) {
+            stopCamera();
+            setTimeout(() => startCamera(true), 250);
+        }
+    });
+
+    // attempt to auto-start (may be blocked by browser); user can click anywhere to allow
+    setTimeout(() => startCamera(false), 300);
+
+    // register fallback gesture-based start so user can click anywhere to give permission
+    addGestureStart();
+});
+
+// update camera status element
+function setCamStatus(text, color) {
+    const el = document.getElementById('camStatus');
+    if (!el) return;
+    el.innerText = text;
+    if (color) el.style.color = color;
+}
+
+// update cam status when starting/stopping and start/stop motion sampling
+const origStartCamera = startCamera;
+startCamera = async function(fromUser = false) {
+    setCamStatus('Starting camera...', '#15803d');
+    await origStartCamera(fromUser);
+    // start motion sampling interval
+    if (!motionInterval) motionInterval = setInterval(detectMotion, motionConfig.intervalMs);
+    setCamStatus('Camera active', '#15803d');
+}
+
+const origStopCamera = stopCamera;
+stopCamera = function() {
+    origStopCamera();
+    // stop motion sampling
+    if (motionInterval) {
+        clearInterval(motionInterval);
+        motionInterval = null;
+    }
+    setCamStatus('Camera stopped', '#dc2626');
+}
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Settings</title>
+    <style>
+        /* Reset & Base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #e0e8ff, #f5e0e8); /* Soft light blue to light pink */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Main Card */
+        .admin-container {
+            background: #ffffff;
+            width: 420px;
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            animation: fadeIn 0.7s ease-out;
+        }
+
+        /* Heading */
+        .admin-container h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e70; /* Deep soft blue for heading */
+            font-size: 26px;
+            font-weight: 600;
+        }
+
+        /* Form Elements */
+        form p {
+            margin-bottom: 20px;
+        }
+
+        form label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #34495e; /* Dark gray-blue for labels */
+            font-size: 15px;
+        }
+
+        form input,
+        form select,
+        form textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid #d0d8e8;
+            background-color: #f9fbff;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        form input:focus,
+        form select:focus,
+        form textarea:focus {
+            border-color: #5d7ce0; /* Soft blue accent on focus */
+            background-color: #ffffff;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(93, 124, 224, 0.15);
+        }
+
+        /* Submit Button */
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #6b7ee0, #a06cd5); /* Light purple-blue gradient */
+            border: none;
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        button[type="submit"]:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 25px rgba(107, 126, 224, 0.3);
+        }
+
+        button[type="submit"]:active {
+            transform: translateY(-1px);
+        }
+
+        /* Back Link */
+        .back-link {
+            display: block;
+            margin-top: 25px;
+            text-align: center;
+            text-decoration: none;
+            color: #5d7ce0;
+            font-weight: 600;
+            font-size: 15px;
+            transition: color 0.3s;
+        }
+
+        .back-link:hover {
+            color: #3a56b0;
+            text-decoration: underline;
+        }
+
+        /* Animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Responsive tweak */
+        @media (max-width: 480px) {
+            .admin-container {
+                width: 90%;
+                padding: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <h1>Admin Interview Settings</h1>
+
+        {% if success_message %}
+            <div class="mb-4">
+                <div style="padding:10px;border-radius:6px;background:#ecfdf5;color:#065f46;margin-bottom:6px;">{{ success_message }}</div>
+            </div>
+        {% endif %}
+
+        <div class="mb-3 text-sm text-gray-600">
+            <strong>Current Settings:</strong>
+            <p>Number of Questions: {{ current_settings.number_of_questions }}</p>
+            <p>Difficulty: {{ current_settings.difficulty_level }}</p>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit">Save Settings</button>
+        </form>
+        <a href="{% url 'admin_home' %}" class="back-link">← Back to Home</a>
+    </div>
+</body>
+</html>
